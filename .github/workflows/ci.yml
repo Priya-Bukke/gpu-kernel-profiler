@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    # GitHub runners have no GPU: PoCL runs the same OpenCL kernels on the CPU, so correctness is still checked.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev,cpu]"
+      - run: python -m gkp info
+      - name: Correctness of every kernel variant against NumPy
+        run: pytest -q

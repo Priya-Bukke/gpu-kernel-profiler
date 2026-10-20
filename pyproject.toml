@@ -1,0 +1,20 @@
+[project]
+name = "gkp"
+version = "0.1.0"
+description = "GPU kernel profiler: OpenCL kernels in progressively optimised versions, timed with device events, checked against NumPy, placed on a roofline"
+requires-python = ">=3.10"
+dependencies = ["pyopencl==2025.2.7", "numpy==2.3.4", "matplotlib==3.10.7"]
+
+[project.optional-dependencies]
+dev = ["pytest==8.4.2"]
+cpu = ["pocl-binary-distribution==3.0"]
+
+[tool.setuptools]
+packages = ["gkp"]
+
+[tool.setuptools.package-data]
+gkp = ["kernels/*.cl"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::pyopencl.CompilerWarning"]
