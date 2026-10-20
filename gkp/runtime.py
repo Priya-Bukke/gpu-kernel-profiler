@@ -55,16 +55,30 @@ class Runtime:
             kind=cl.device_type.to_string(self.device.type), compute_units=self.device.max_compute_units,
             clock_mhz=self.device.max_clock_frequency, local_mem_kb=self.device.local_mem_size // 1024,
             max_work_group=self.device.max_work_group_size,
-            subgroups="cl_khr_subgroups" in exts or "cl_intel_subgroups" in exts,
+            # only when the subgroup kernel will actually be compiled (extension present and a 2.0+ standard)
+            subgroups=("cl_khr_subgroups" in exts or "cl_intel_subgroups" in exts) and self.cl_std() is not None,
             peak_gflops=peak_gflops(self.device),
         )
 
+    def cl_std(self) -> str | None:
+        """OpenCL C standard to compile against for subgroup builtins (2.0 or 3.0).
+
+        Uses the device's OpenCL version: on OpenCL 3.0 devices the older OPENCL_C_VERSION query may still say 1.2
+        (the Intel GPU driver does), while PoCL 5 rejects -cl-std=CL2.0 but accepts CL3.0."""
+        version = self.device.version  # e.g. "OpenCL 3.0 NEO" or "OpenCL 3.0 PoCL 5.0"
+        if version.startswith("OpenCL 3."):
+            return "CL3.0"
+        if version.startswith("OpenCL 2."):
+            return "CL2.0"
+        return None
+
     def build(self, filename: str, **defines: int) -> cl.Program:
         opts = [f"-D{k}={v}" for k, v in defines.items()]
+        std = self.cl_std()
         if self.info.subgroups:
-            opts.append("-DHAS_SUBGROUPS=1")
+            opts += ["-DHAS_SUBGROUPS=1", f"-cl-std={std}"]
         src = (KERNELS / filename).read_text()
-        return cl.Program(self.ctx, src).build(options=opts + ["-cl-std=CL2.0"] if self.info.subgroups else opts)
+        return cl.Program(self.ctx, src).build(options=opts)
 
     def buffer(self, array: np.ndarray | None = None, nbytes: int | None = None) -> cl.Buffer:
         mf = cl.mem_flags
